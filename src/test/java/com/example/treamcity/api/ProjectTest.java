@@ -49,21 +49,21 @@ public class ProjectTest extends BaseApiTest {
 
         var userCheckRequests = new CheckedRequest(Specifications.authSpec(user));
 
-        var project = generate(Project.class);
-        superUserRequests.getRequest(ROLES).assign(user.getUsername(), "PROJECT_ADMIN", "_Root");
-        project = userCheckRequests.<Project>getRequest(PROJECTS).create(project);
-
         var project1 = generate(Project.class);
-        project1.setId(project.getId());
+        superUserRequests.getRequest(ROLES).assign(user.getUsername(), "PROJECT_ADMIN", "_Root");
+        project1 = userCheckRequests.<Project>getRequest(PROJECTS).create(project1);
 
-        userCheckRequests.getRequest(PROJECTS).create(project);
+        var project2 = generate(Project.class);
+        project2.setId(project1.getId());
+
+        userCheckRequests.getRequest(PROJECTS).createWithError(project2, HttpStatus.SC_BAD_REQUEST);
 
         new UncheckedBase(Specifications.authSpec(user), PROJECTS)
-                .create(project1)
+                .create(project2)
                 .then()
                 .assertThat().statusCode(HttpStatus.SC_BAD_REQUEST)
-                .body(Matchers.containsString("The project ID \"%s\" is already used by another project"
-                        .formatted(project.getId())));
+                .body(Matchers.containsString("DuplicateExternalIdException: Project ID \"%s\" is already used by another project"
+                        .formatted(project2.getId())));
     }
 
     @Test(description = "User should not be able to create a project without a name", groups = {"Negative"})
@@ -78,6 +78,12 @@ public class ProjectTest extends BaseApiTest {
         var project = generate(Project.class);
         project.setName(null);
 
-        userRequests.getRequest(PROJECTS).createWithError(project, 400);
+        userRequests.getRequest(PROJECTS).createWithError(project, HttpStatus.SC_BAD_REQUEST);
+
+        new UncheckedBase(Specifications.authSpec(user), PROJECTS)
+                .create(project)
+                .then()
+                .assertThat().statusCode(HttpStatus.SC_BAD_REQUEST)
+                .body(Matchers.containsString("BadRequestException: Project name cannot be empty"));
     }
 }
